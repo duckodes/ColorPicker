@@ -64,41 +64,47 @@ $colorBtn.Add_Click({
 })
 
 $timer = [Windows.Forms.Timer]::new()
-$timer.Interval = 33
+$timer.Interval = 50
 $timer.Add_Tick({
     if ($script:isSampling) {
         $mousePos = [Windows.Forms.Cursor]::Position
 
-        # 暫時隱藏放大視窗，避免吸到自己
-        $zoomForm.Hide()
+        # 只有滑鼠移動才更新
+        if ($mousePos -ne $script:lastMousePos) {
+            $script:lastMousePos = $mousePos
 
-        $bmp = [Drawing.Bitmap]::new($bmpSize, $bmpSize)
-        $gfx = [Drawing.Graphics]::FromImage($bmp)
-        $gfx.CopyFromScreen($mousePos.X - $centerOffset, $mousePos.Y - $centerOffset, 0, 0, $bmp.Size)
-        $script:cachedBitmap = $bmp
-        $gfx.Dispose()
+            $zoomForm.Hide()
 
-        $zoomForm.Show()
+            $bmp = [Drawing.Bitmap]::new($bmpSize, $bmpSize)
+            $gfx = [Drawing.Graphics]::FromImage($bmp)
+            $gfx.CopyFromScreen($mousePos.X - $centerOffset, $mousePos.Y - $centerOffset, 0, 0, $bmp.Size)
+            if ($script:cachedBitmap) { $script:cachedBitmap.Dispose() }
+            $script:cachedBitmap = $bmp
+            $gfx.Dispose()
 
-        # 取得中心像素顏色
-        $centerColor = $bmp.GetPixel($centerOffset, $centerOffset)
-        $rgbLabel.Text = "RGB: R=$($centerColor.R) G=$($centerColor.G) B=$($centerColor.B)"
-        $form.BackColor = $centerColor
+            $zoomForm.Show()
 
-        $zoomForm.Location = [Drawing.Point]::new(
-            $mousePos.X - [Math]::Floor($zoomForm.Width / 2),
-            $mousePos.Y - [Math]::Floor($zoomForm.Height / 2)
-        )
+            $centerColor = $bmp.GetPixel($centerOffset, $centerOffset)
+            $rgbLabel.Text = "RGB: R=$($centerColor.R) G=$($centerColor.G) B=$($centerColor.B)"
+            $form.BackColor = $centerColor
 
-        $zoomForm.Invalidate()
+            $zoomForm.Location = [Drawing.Point]::new(
+                $mousePos.X - [Math]::Floor($zoomForm.Width / 2),
+                $mousePos.Y - [Math]::Floor($zoomForm.Height / 2)
+            )
+
+            $zoomForm.Invalidate()
+        }
 
         # 點擊左鍵關閉模式
         if ([Windows.Forms.Control]::MouseButtons -band [Windows.Forms.MouseButtons]::Left) {
             $script:isSampling = $false
             $colorBtn.Text = "開啟吸色模式"
             $zoomForm.Visible = $false
-            $script:cachedBitmap.Dispose()
-            $script:cachedBitmap = $null
+            if ($script:cachedBitmap) {
+                $script:cachedBitmap.Dispose()
+                $script:cachedBitmap = $null
+            }
         }
     }
 })
