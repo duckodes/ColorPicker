@@ -1,0 +1,1 @@
+powershell.exe -windowstyle hidden -ExecutionPolicy Bypass -File "%~dp0ColorPicker.ps1"
