@@ -64,7 +64,7 @@ $colorBtn.Add_Click({
 })
 
 $timer = [Windows.Forms.Timer]::new()
-$timer.Interval = 50
+$timer.Interval = 33
 $timer.Add_Tick({
     if ($script:isSampling) {
         $mousePos = [Windows.Forms.Cursor]::Position
@@ -73,7 +73,7 @@ $timer.Add_Tick({
         if ($mousePos -ne $script:lastMousePos) {
             $script:lastMousePos = $mousePos
 
-            $zoomForm.Hide()
+            $zoomForm.Opacity = 0
 
             $bmp = [Drawing.Bitmap]::new($bmpSize, $bmpSize)
             $gfx = [Drawing.Graphics]::FromImage($bmp)
@@ -82,7 +82,7 @@ $timer.Add_Tick({
             $script:cachedBitmap = $bmp
             $gfx.Dispose()
 
-            $zoomForm.Show()
+            $zoomForm.Opacity = 1
 
             $centerColor = $bmp.GetPixel($centerOffset, $centerOffset)
             $rgbLabel.Text = "RGB: R=$($centerColor.R) G=$($centerColor.G) B=$($centerColor.B)"
