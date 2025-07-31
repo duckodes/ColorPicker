@@ -6,6 +6,53 @@ $form.Text = "吸色器工具"
 $form.Size = [Drawing.Size]::new(300, 200)
 $form.StartPosition = "CenterScreen"
 $form.TopMost = $true
+$form.SizeGripStyle = [System.Windows.Forms.SizeGripStyle]::Hide
+
+# 設定視窗圖標
+$iconPath = Join-Path $PSScriptRoot "ColorPicker.ico"
+if (Test-Path $iconPath) {
+    $form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($iconPath)
+}
+function Resize() {
+    $totalHeight = 0
+
+    foreach ($ctrl in $form.Controls) {
+        if ($ctrl -is [System.Windows.Forms.Button] -and $ctrl -ne $closeBtn) {
+            $ctrl.Width = $form.ClientSize.Width - 20
+
+            # 抓顯示所需高度（TextRenderer 預測顯示效果）
+            $textSize = [System.Windows.Forms.TextRenderer]::MeasureText(
+                $ctrl.Text,
+                $ctrl.Font,
+                [System.Drawing.Size]::new($ctrl.Width, 9999),
+                [System.Windows.Forms.TextFormatFlags]::WordBreak
+            )
+
+            # 使用 Font.Height 或指定的單行高計算行數
+            $lineHeight = $ctrl.Font.Height
+            $lineCount = [math]::Ceiling($textSize.Height / $lineHeight)
+
+            # 最小限制：若沒有換行，也至少顯示一行
+            if ($lineCount -lt 1) { $lineCount = 1 }
+
+            $ctrl.Height = $lineCount * $lineHeight + 10
+            $totalHeight += $ctrl.Height + 10
+        }
+    }
+
+    # 垂直置中排列
+    $startY = [Math]::Max(10, ($form.ClientSize.Height - $totalHeight) / 2)
+    foreach ($ctrl in $form.Controls) {
+        if ($ctrl -is [System.Windows.Forms.Button]) {
+            $ctrl.Left = ($form.ClientSize.Width - $ctrl.Width) / 2
+            $ctrl.Top  = $startY
+            $startY += $ctrl.Height + 10
+        }
+    }
+}
+$form.Add_Resize({
+    Resize
+})
 
 $rgbLabel = [Windows.Forms.Label]::new()
 $rgbLabel.Location = [Drawing.Point]::new(20, 100)
@@ -18,6 +65,10 @@ $colorBtn.Text = "開啟吸色模式"
 $colorBtn.Location = [Drawing.Point]::new(20, 20)
 $colorBtn.Size = [Drawing.Size]::new(160, 40)
 $colorBtn.Font = [Drawing.Font]::new("Microsoft JhengHei", 10)
+$colorBtn.BackColor =  [Drawing.Color]::White
+# 美化按鈕樣式
+$colorBtn.FlatStyle = 'Flat'
+$colorBtn.FlatAppearance.BorderSize = 0
 
 $script:isSampling = $false
 
@@ -59,8 +110,9 @@ $zoomForm.Add_Paint({
 
 $colorBtn.Add_Click({
     $script:isSampling = -not $script:isSampling
-    $colorBtn.Text = if ($script:isSampling) { "吸色中…" } else { "開啟吸色模式" }
+    $colorBtn.Text = "吸色中…"
     $zoomForm.Visible = $script:isSampling
+    $form.WindowState = [System.Windows.Forms.FormWindowState]::Minimized
 })
 
 $timer = [Windows.Forms.Timer]::new()
@@ -85,7 +137,7 @@ $timer.Add_Tick({
             $zoomForm.Opacity = 1
 
             $centerColor = $bmp.GetPixel($centerOffset, $centerOffset)
-            $rgbLabel.Text = "RGB: R=$($centerColor.R) G=$($centerColor.G) B=$($centerColor.B)"
+            $rgbLabel.Text = "R=$($centerColor.R) G=$($centerColor.G) B=$($centerColor.B)"
             $form.BackColor = $centerColor
 
             $zoomForm.Location = [Drawing.Point]::new(
@@ -99,17 +151,19 @@ $timer.Add_Tick({
         # 點擊左鍵關閉模式
         if ([Windows.Forms.Control]::MouseButtons -band [Windows.Forms.MouseButtons]::Left) {
             $script:isSampling = $false
-            $colorBtn.Text = "開啟吸色模式"
+            $colorBtn.Text = "開啟吸色模式`n" + $rgbLabel.Text
             $zoomForm.Visible = $false
             if ($script:cachedBitmap) {
                 $script:cachedBitmap.Dispose()
                 $script:cachedBitmap = $null
             }
+            $form.WindowState = [System.Windows.Forms.FormWindowState]::Normal
+            [System.Windows.Forms.Clipboard]::SetText($rgbLabel.Text)
         }
     }
 })
 
 $timer.Start()
-$form.Controls.Add($rgbLabel)
 $form.Controls.Add($colorBtn)
+Resize
 [void]$form.ShowDialog()
